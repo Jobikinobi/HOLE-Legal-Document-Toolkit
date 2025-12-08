@@ -7,6 +7,7 @@ import os
 import sys
 import unittest
 import tempfile
+import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -27,7 +28,6 @@ class TestPDFConverter(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         # Clean up temporary directory
-        import shutil
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
     

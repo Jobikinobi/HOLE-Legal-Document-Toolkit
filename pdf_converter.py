@@ -7,6 +7,7 @@ and optimizing PDFs with high-quality compression suitable for legal documents.
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import List, Optional
 import click
@@ -275,8 +276,8 @@ def optimize(input_file, output, quality):
 
 
 @cli.command()
-@click.argument('image_files', nargs=-1, required=True, type=click.Path(exists=True))
-@click.argument('pdf_files', nargs=-1, required=True, type=click.Path(exists=True))
+@click.argument('image_files', nargs=-1, type=click.Path(exists=True))
+@click.option('--pdf', 'pdf_files', multiple=True, type=click.Path(exists=True), help='PDF files to merge')
 @click.option('-o', '--output', required=True, type=click.Path(), help='Output PDF file path')
 @click.option('-q', '--quality', type=click.Choice(['high', 'medium', 'low']), default='high',
               help='Compression quality level (default: high)')
@@ -287,15 +288,21 @@ def batch(image_files, pdf_files, output, quality):
     This is a convenience command that performs all operations in one step.
     
     Example:
-        pdf-converter batch img1.jpg img2.png --pdf file1.pdf file2.pdf -o final.pdf -q high
+        pdf-converter batch img1.jpg img2.png --pdf file1.pdf --pdf file2.pdf -o final.pdf -q high
     """
     converter = PDFConverter(quality=quality)
     temp_files = []
+    temp_dir = tempfile.mkdtemp()
+    
+    # Validate that at least one input is provided
+    if not image_files and not pdf_files:
+        click.echo("Error: At least one image file or PDF file must be provided", err=True)
+        sys.exit(1)
     
     try:
         # Convert images to temporary PDF if there are any
         if image_files:
-            temp_img_pdf = '/tmp/temp_images.pdf'
+            temp_img_pdf = os.path.join(temp_dir, 'temp_images.pdf')
             if not converter.image_to_pdf(list(image_files), temp_img_pdf):
                 sys.exit(1)
             temp_files.append(temp_img_pdf)
@@ -304,7 +311,7 @@ def batch(image_files, pdf_files, output, quality):
         all_pdfs = temp_files + list(pdf_files)
         
         # Merge all PDFs
-        temp_merged = '/tmp/temp_merged.pdf'
+        temp_merged = os.path.join(temp_dir, 'temp_merged.pdf')
         if not converter.merge_pdfs(all_pdfs, temp_merged):
             sys.exit(1)
         temp_files.append(temp_merged)
@@ -317,13 +324,19 @@ def batch(image_files, pdf_files, output, quality):
         sys.exit(0)
         
     finally:
-        # Clean up temporary files
+        # Clean up temporary files and directory
         for temp_file in temp_files:
             if os.path.exists(temp_file):
                 try:
                     os.remove(temp_file)
-                except:
+                except OSError:
                     pass
+        
+        # Remove temporary directory
+        try:
+            os.rmdir(temp_dir)
+        except OSError:
+            pass
 
 
 if __name__ == '__main__':

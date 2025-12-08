@@ -75,7 +75,7 @@ pdf-converter optimize input.pdf -o optimized.pdf -q medium
 Convert images and merge with existing PDFs in one step:
 
 ```bash
-pdf-converter batch img1.jpg img2.png --pdf file1.pdf file2.pdf -o final.pdf -q high
+pdf-converter batch img1.jpg img2.png --pdf file1.pdf --pdf file2.pdf -o final.pdf -q high
 ```
 
 ## Quality Settings

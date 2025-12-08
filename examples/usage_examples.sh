@@ -29,7 +29,7 @@ echo ""
 
 echo "5. Example: Batch Processing"
 echo "   Convert images and merge with PDFs:"
-echo "   Command: pdf-converter batch scan1.jpg scan2.jpg --pdf contract.pdf addendum.pdf -o complete_package.pdf -q high"
+echo "   Command: pdf-converter batch scan1.jpg scan2.jpg --pdf contract.pdf --pdf addendum.pdf -o complete_package.pdf -q high"
 echo ""
 
 echo "6. Example: Legal Document Workflow"
