@@ -8,6 +8,10 @@ A professional toolkit for managing legal exhibits - merge, split, and optimize 
 - **Merge PDFs**: Combine multiple pages/documents into single exhibits
 - **Optimize PDFs**: Compress with Ghostscript (matches Adobe Acrobat quality)
 - **OCR Support**: Make scanned documents searchable with Tesseract OCR
+- **Bates Numbering**: Add sequential page stamps for discovery/litigation
+- **Redaction**: Black out sensitive content with labels
+- **Watermarking**: Add CONFIDENTIAL/DRAFT stamps to documents
+- **Table of Contents**: Generate exhibit indexes automatically
 - **PDF/A Compliance**: Create legally-archivable documents
 - **Full Pipeline**: Process Figma → Split → Merge → OCR → Optimize in one command
 - **MCP Server**: Integrate with Claude and other AI assistants
@@ -171,6 +175,81 @@ Extract all text content from a PDF for analysis or review.
 ```json
 {
   "input_path": "./document.pdf"
+}
+```
+
+### `add_bates_numbers`
+Add sequential Bates stamps to legal documents. Essential for discovery and court filings.
+
+```json
+{
+  "input_path": "./exhibit.pdf",
+  "output_path": "./exhibit_bates.pdf",
+  "prefix": "SMITH-",
+  "start_number": 1,
+  "digits": 4,
+  "position": "bottom-right"
+}
+```
+
+**Positions**: `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`
+
+**Output**: `SMITH-0001`, `SMITH-0002`, etc.
+
+### `redact_pdf`
+Apply redaction boxes to sensitive content. Use for privileged info, PII, SSNs, etc.
+
+```json
+{
+  "input_path": "./document.pdf",
+  "output_path": "./redacted.pdf",
+  "areas": [
+    { "page": 1, "x": 100, "y": 500, "width": 200, "height": 20, "label": "[REDACTED]" }
+  ],
+  "redact_headers": false,
+  "redact_footers": true
+}
+```
+
+### `add_watermark`
+Add diagonal text watermark to all pages.
+
+```json
+{
+  "input_path": "./document.pdf",
+  "output_path": "./watermarked.pdf",
+  "text": "CONFIDENTIAL",
+  "opacity": 0.3,
+  "rotation": -45
+}
+```
+
+### `generate_toc`
+Generate a Table of Contents / Exhibit Index for exhibit bundles.
+
+```json
+{
+  "output_path": "./toc.pdf",
+  "entries": [
+    {
+      "label": "Exhibit A",
+      "description": "Email correspondence dated Jan 5, 2024",
+      "batesStart": "SMITH-0001",
+      "batesEnd": "SMITH-0015",
+      "pageCount": 15
+    },
+    {
+      "label": "Exhibit B",
+      "description": "Contract between parties",
+      "batesStart": "SMITH-0016",
+      "batesEnd": "SMITH-0028",
+      "pageCount": 13
+    }
+  ],
+  "title": "EXHIBIT INDEX",
+  "subtitle": "Smith v. Jones, Case No. 2024-CV-1234",
+  "prepared_by": "Law Firm LLP",
+  "date": "December 8, 2024"
 }
 ```
 
@@ -344,6 +423,9 @@ legal-exhibits-toolkit/
 │   │   │   ├── merge.ts
 │   │   │   ├── optimize.ts
 │   │   │   ├── ocr.ts
+│   │   │   ├── bates.ts
+│   │   │   ├── redact.ts
+│   │   │   ├── toc.ts
 │   │   │   └── process-exhibit.ts
 │   │   └── utils/        # Helper utilities
 │   └── package.json

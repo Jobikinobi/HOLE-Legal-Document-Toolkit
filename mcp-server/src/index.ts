@@ -7,6 +7,9 @@
  * - Merge multiple PDFs into a single document
  * - Optimize PDFs for maximum compression with high quality (Adobe Acrobat-level)
  * - OCR scanned documents to make them searchable
+ * - Bates numbering for legal document stamping
+ * - Redaction for sensitive content
+ * - Table of contents generation
  *
  * Uses native tools via Homebrew:
  * - qpdf: Fast PDF manipulation (split, merge)
@@ -28,6 +31,9 @@ import { mergePdfs } from "./tools/merge.js";
 import { optimizePdf, OptimizationPreset } from "./tools/optimize.js";
 import { processExhibit } from "./tools/process-exhibit.js";
 import { ocrPdf, extractText, checkOcrInstalled, OcrOutputType, OcrOptimizeLevel } from "./tools/ocr.js";
+import { addBatesNumbers, BatesPosition } from "./tools/bates.js";
+import { redactPdf, addWatermark } from "./tools/redact.js";
+import { generateToc, createEntriesFromFiles } from "./tools/toc.js";
 import { checkDependencies } from "./utils/dependencies.js";
 import { listFiles } from "./utils/files.js";
 
@@ -258,6 +264,192 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["input_path"],
         },
       },
+      {
+        name: "add_bates_numbers",
+        description: "Add Bates numbers (sequential page stamps) to legal documents. Essential for discovery and court filings.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input_path: {
+              type: "string",
+              description: "Path to the PDF to stamp",
+            },
+            output_path: {
+              type: "string",
+              description: "Path for the Bates-numbered output PDF",
+            },
+            prefix: {
+              type: "string",
+              description: "Prefix for Bates numbers (e.g., 'SMITH-', 'EXHIBIT A-', 'DOC-')",
+            },
+            suffix: {
+              type: "string",
+              description: "Suffix after numbers (e.g., '-CONFIDENTIAL')",
+            },
+            start_number: {
+              type: "number",
+              description: "Starting number (default: 1)",
+            },
+            digits: {
+              type: "number",
+              description: "Zero-padding digits (default: 4, e.g., 0001)",
+            },
+            position: {
+              type: "string",
+              enum: ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"],
+              description: "Position of Bates stamp (default: bottom-right)",
+            },
+            font_size: {
+              type: "number",
+              description: "Font size in points (default: 10)",
+            },
+          },
+          required: ["input_path", "output_path"],
+        },
+      },
+      {
+        name: "redact_pdf",
+        description: "Apply redactions (black boxes) to sensitive areas in a PDF. Use for privileged information, PII, etc.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input_path: {
+              type: "string",
+              description: "Path to the PDF to redact",
+            },
+            output_path: {
+              type: "string",
+              description: "Path for the redacted output PDF",
+            },
+            areas: {
+              type: "array",
+              description: "Array of areas to redact: [{page, x, y, width, height, label?}]",
+              items: {
+                type: "object",
+                properties: {
+                  page: { type: "number", description: "Page number (1-indexed)" },
+                  x: { type: "number", description: "X coordinate from left" },
+                  y: { type: "number", description: "Y coordinate from bottom" },
+                  width: { type: "number", description: "Width of redaction box" },
+                  height: { type: "number", description: "Height of redaction box" },
+                  label: { type: "string", description: "Optional label (e.g., '[REDACTED]')" },
+                },
+              },
+            },
+            redact_headers: {
+              type: "boolean",
+              description: "Redact header area on all pages",
+            },
+            redact_footers: {
+              type: "boolean",
+              description: "Redact footer area on all pages",
+            },
+            header_height: {
+              type: "number",
+              description: "Height of header region to redact (default: 50)",
+            },
+            footer_height: {
+              type: "number",
+              description: "Height of footer region to redact (default: 50)",
+            },
+          },
+          required: ["input_path", "output_path"],
+        },
+      },
+      {
+        name: "add_watermark",
+        description: "Add a diagonal text watermark to all pages (e.g., 'CONFIDENTIAL', 'DRAFT', 'COPY').",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input_path: {
+              type: "string",
+              description: "Path to the PDF to watermark",
+            },
+            output_path: {
+              type: "string",
+              description: "Path for the watermarked output PDF",
+            },
+            text: {
+              type: "string",
+              description: "Watermark text (e.g., 'CONFIDENTIAL', 'DRAFT')",
+            },
+            font_size: {
+              type: "number",
+              description: "Font size (default: 60)",
+            },
+            opacity: {
+              type: "number",
+              description: "Opacity 0-1 (default: 0.3)",
+            },
+            rotation: {
+              type: "number",
+              description: "Rotation angle in degrees (default: -45)",
+            },
+          },
+          required: ["input_path", "output_path", "text"],
+        },
+      },
+      {
+        name: "generate_toc",
+        description: "Generate a Table of Contents / Exhibit Index page for a collection of legal exhibits.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            output_path: {
+              type: "string",
+              description: "Path for the generated TOC PDF",
+            },
+            entries: {
+              type: "array",
+              description: "Array of exhibit entries",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string", description: "Exhibit label (e.g., 'Exhibit A')" },
+                  description: { type: "string", description: "Brief description" },
+                  batesStart: { type: "string", description: "Starting Bates number" },
+                  batesEnd: { type: "string", description: "Ending Bates number" },
+                  pageCount: { type: "number", description: "Number of pages" },
+                },
+              },
+            },
+            title: {
+              type: "string",
+              description: "TOC title (default: 'TABLE OF CONTENTS')",
+            },
+            subtitle: {
+              type: "string",
+              description: "Subtitle (e.g., case name)",
+            },
+            case_caption: {
+              type: "string",
+              description: "Full case caption (can include newlines)",
+            },
+            prepared_by: {
+              type: "string",
+              description: "Preparer name/firm",
+            },
+            prepared_for: {
+              type: "string",
+              description: "Recipient name",
+            },
+            date: {
+              type: "string",
+              description: "Date string",
+            },
+            include_page_numbers: {
+              type: "boolean",
+              description: "Include page count column (default: true)",
+            },
+            include_bates_numbers: {
+              type: "boolean",
+              description: "Include Bates range column (default: true)",
+            },
+          },
+          required: ["output_path", "entries"],
+        },
+      },
     ],
   };
 });
@@ -394,6 +586,82 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const text = await extractText(args.input_path as string);
         return {
           content: [{ type: "text", text }],
+        };
+      }
+
+      case "add_bates_numbers": {
+        const result = await addBatesNumbers({
+          inputPath: args.input_path as string,
+          outputPath: args.output_path as string,
+          prefix: args.prefix as string | undefined,
+          suffix: args.suffix as string | undefined,
+          startNumber: args.start_number as number | undefined,
+          digits: args.digits as number | undefined,
+          position: args.position as BatesPosition | undefined,
+          fontSize: args.font_size as number | undefined,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "redact_pdf": {
+        const result = await redactPdf({
+          inputPath: args.input_path as string,
+          outputPath: args.output_path as string,
+          areas: args.areas as Array<{
+            page: number;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            label?: string;
+          }> | undefined,
+          redactHeaders: args.redact_headers as boolean | undefined,
+          redactFooters: args.redact_footers as boolean | undefined,
+          headerHeight: args.header_height as number | undefined,
+          footerHeight: args.footer_height as number | undefined,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "add_watermark": {
+        const result = await addWatermark({
+          inputPath: args.input_path as string,
+          outputPath: args.output_path as string,
+          text: args.text as string,
+          fontSize: args.font_size as number | undefined,
+          opacity: args.opacity as number | undefined,
+          rotation: args.rotation as number | undefined,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "generate_toc": {
+        const result = await generateToc({
+          outputPath: args.output_path as string,
+          entries: args.entries as Array<{
+            label: string;
+            description: string;
+            batesStart?: string;
+            batesEnd?: string;
+            pageCount?: number;
+          }>,
+          title: args.title as string | undefined,
+          subtitle: args.subtitle as string | undefined,
+          caseCaption: args.case_caption as string | undefined,
+          preparedBy: args.prepared_by as string | undefined,
+          preparedFor: args.prepared_for as string | undefined,
+          date: args.date as string | undefined,
+          includePageNumbers: args.include_page_numbers as boolean | undefined,
+          includeBatesNumbers: args.include_bates_numbers as boolean | undefined,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };
       }
 
