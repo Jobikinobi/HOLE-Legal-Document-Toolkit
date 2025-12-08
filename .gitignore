@@ -31,3 +31,29 @@ yarn-error.log*
 # Python files
 *.pyc
 __pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# PDF Converter specific
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.tiff
+*.tif
+*.bmp
+*.gif
+/examples/sample_files/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
