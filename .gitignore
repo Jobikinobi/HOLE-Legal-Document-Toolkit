@@ -57,3 +57,6 @@ build/
 .coverage
 htmlcov/
 .tox/
+
+# Temporary files
+/tmp/
