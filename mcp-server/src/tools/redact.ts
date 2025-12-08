@@ -14,7 +14,7 @@
  * should be flattened/re-rendered after redaction.
  */
 
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFPage, degrees } from "pdf-lib";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { ensureDir, getFileSize, formatFileSize } from "../utils/files.js";
@@ -103,7 +103,7 @@ export async function redactPdf(options: RedactOptions): Promise<RedactResult> {
 
   // Helper to draw a redaction box
   const drawRedactionBox = (
-    page: ReturnType<typeof pages[0]>,
+    page: PDFPage,
     x: number,
     y: number,
     width: number,
@@ -279,7 +279,7 @@ export async function addWatermark(options: {
       font,
       color: rgb(color.r, color.g, color.b),
       opacity,
-      rotate: { type: "degrees" as const, angle: rotation },
+      rotate: degrees(rotation),
     });
   }
 

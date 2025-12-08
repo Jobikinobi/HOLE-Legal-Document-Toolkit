@@ -493,6 +493,13 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  if (!args) {
+    return {
+      content: [{ type: "text", text: "Error: No arguments provided" }],
+      isError: true,
+    };
+  }
+
   try {
     switch (name) {
       case "split_pdf": {
