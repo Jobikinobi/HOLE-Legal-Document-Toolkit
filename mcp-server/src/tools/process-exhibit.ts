@@ -9,6 +9,7 @@ import * as fs from "fs/promises";
 import { splitPdf } from "./split.js";
 import { mergePdfs } from "./merge.js";
 import { optimizePdf, OptimizationPreset } from "./optimize.js";
+import { ocrPdf, checkOcrInstalled } from "./ocr.js";
 import {
   ensureDir,
   getFileSize,
@@ -22,6 +23,8 @@ interface ProcessExhibitOptions {
   pages?: string;
   preset?: OptimizationPreset;
   exhibitLabel?: string;
+  ocr?: boolean; // Enable OCR for scanned documents
+  ocrLanguage?: string; // OCR language (default: eng)
 }
 
 interface ProcessExhibitResult {
@@ -34,6 +37,11 @@ interface ProcessExhibitResult {
     };
     merge?: {
       filesProcessed: number;
+    };
+    ocr?: {
+      enabled: boolean;
+      language: string;
+      pagesProcessed: number;
     };
     optimize: {
       preset: string;
@@ -87,7 +95,8 @@ function parsePageSelection(selection: string, totalPages: number): number[] {
  * Pipeline:
  * 1. If pages specified: Split PDF and extract selected pages
  * 2. Merge selected pages (if multiple)
- * 3. Optimize for maximum compression with high quality
+ * 3. If OCR enabled: Add searchable text layer (for scanned documents)
+ * 4. Optimize for maximum compression with high quality
  */
 export async function processExhibit(
   options: ProcessExhibitOptions
@@ -98,6 +107,8 @@ export async function processExhibit(
     pages,
     preset = "printer",
     exhibitLabel,
+    ocr = false,
+    ocrLanguage = "eng",
   } = options;
 
   // Create temp directory for intermediate files
@@ -156,7 +167,36 @@ export async function processExhibit(
       }
     }
 
-    // Step 3: Optimize the final PDF
+    // Step 3: OCR if enabled (for scanned documents)
+    if (ocr) {
+      const ocrCheck = await checkOcrInstalled();
+      if (!ocrCheck.installed) {
+        throw new Error(
+          "OCR requested but ocrmypdf is not installed. Install with: brew install ocrmypdf"
+        );
+      }
+
+      const ocrOutputPath = path.join(tempDir, "ocr_output.pdf");
+      const ocrResult = await ocrPdf({
+        inputPath: currentInputPath,
+        outputPath: ocrOutputPath,
+        language: ocrLanguage,
+        deskew: true,
+        rotate: true,
+        skipText: true,
+        outputType: "pdfa-2",
+        optimize: 1,
+      });
+
+      currentInputPath = ocrOutputPath;
+      pipelineResult.ocr = {
+        enabled: true,
+        language: ocrLanguage,
+        pagesProcessed: ocrResult.ocr.pagesProcessed,
+      };
+    }
+
+    // Step 4: Optimize the final PDF
     const optimizeResult = await optimizePdf({
       inputPath: currentInputPath,
       outputPath,

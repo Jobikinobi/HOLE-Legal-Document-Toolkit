@@ -36,6 +36,15 @@ check_command "gs" "Ghostscript" "brew install gs" "required"
 gs_ok=$?
 
 echo ""
+echo "OCR Dependencies:"
+echo "-----------------"
+check_command "ocrmypdf" "ocrmypdf" "brew install ocrmypdf" "required"
+ocr_ok=$?
+
+check_command "tesseract" "tesseract" "brew install tesseract" "required"
+tess_ok=$?
+
+echo ""
 echo "Recommended Dependencies:"
 echo "------------------------"
 check_command "pdfinfo" "poppler (pdfinfo)" "brew install poppler" "optional"
@@ -54,7 +63,7 @@ npm_ok=$?
 echo ""
 echo "============================================="
 
-if [ $qpdf_ok -eq 0 ] && [ $gs_ok -eq 0 ] && [ $node_ok -eq 0 ] && [ $npm_ok -eq 0 ]; then
+if [ $qpdf_ok -eq 0 ] && [ $gs_ok -eq 0 ] && [ $ocr_ok -eq 0 ] && [ $tess_ok -eq 0 ] && [ $node_ok -eq 0 ] && [ $npm_ok -eq 0 ]; then
     echo "✅ All required dependencies are installed!"
     echo ""
     echo "You're ready to go! Run:"

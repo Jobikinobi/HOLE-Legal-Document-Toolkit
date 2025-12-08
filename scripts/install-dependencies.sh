@@ -56,6 +56,16 @@ install_macos() {
     echo ""
     echo "Installing pdfcpu (optional, Go-based PDF processor)..."
     brew install pdfcpu || true
+
+    echo ""
+    echo "Installing OCR tools (ocrmypdf + tesseract)..."
+    brew install ocrmypdf || true
+    brew install tesseract || true
+
+    echo ""
+    echo "Installing additional language packs for OCR (optional)..."
+    echo "  For all languages: brew install tesseract-lang"
+    echo "  For specific: brew install tesseract-lang (then configure)"
 }
 
 # Install function for Debian/Ubuntu
@@ -75,6 +85,10 @@ install_debian() {
     echo ""
     echo "Installing poppler-utils..."
     sudo apt install -y poppler-utils
+
+    echo ""
+    echo "Installing OCR tools..."
+    sudo apt install -y ocrmypdf tesseract-ocr tesseract-ocr-eng
 }
 
 # Install function for RHEL/CentOS
@@ -94,6 +108,11 @@ install_redhat() {
     echo ""
     echo "Installing poppler-utils..."
     sudo yum install -y poppler-utils
+
+    echo ""
+    echo "Installing OCR tools..."
+    sudo yum install -y tesseract tesseract-langpack-eng
+    pip3 install ocrmypdf || true
 }
 
 # Run appropriate installer

@@ -6,10 +6,12 @@
  * - Split multi-page PDFs into individual pages
  * - Merge multiple PDFs into a single document
  * - Optimize PDFs for maximum compression with high quality (Adobe Acrobat-level)
+ * - OCR scanned documents to make them searchable
  *
  * Uses native tools via Homebrew:
  * - qpdf: Fast PDF manipulation (split, merge)
  * - ghostscript: High-quality optimization and compression
+ * - ocrmypdf + tesseract: OCR for scanned documents
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -25,6 +27,7 @@ import { splitPdf } from "./tools/split.js";
 import { mergePdfs } from "./tools/merge.js";
 import { optimizePdf, OptimizationPreset } from "./tools/optimize.js";
 import { processExhibit } from "./tools/process-exhibit.js";
+import { ocrPdf, extractText, checkOcrInstalled, OcrOutputType, OcrOptimizeLevel } from "./tools/ocr.js";
 import { checkDependencies } from "./utils/dependencies.js";
 import { listFiles } from "./utils/files.js";
 
@@ -131,13 +134,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "process_exhibit",
-        description: "Full pipeline: Split Figma export, merge selected pages, and optimize. Perfect for creating final exhibit documents.",
+        description: "Full pipeline: Split Figma export, merge selected pages, OCR if needed, and optimize. Perfect for creating final exhibit documents from both digital and scanned sources.",
         inputSchema: {
           type: "object",
           properties: {
             input_path: {
               type: "string",
-              description: "Path to the Figma-exported PDF",
+              description: "Path to the Figma-exported PDF or scanned document",
             },
             output_path: {
               type: "string",
@@ -155,6 +158,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             exhibit_label: {
               type: "string",
               description: "Optional label for the exhibit (e.g., 'Exhibit A')",
+            },
+            ocr: {
+              type: "boolean",
+              description: "Enable OCR for scanned documents. Adds searchable text layer while preserving appearance. Creates PDF/A compliant output.",
+            },
+            ocr_language: {
+              type: "string",
+              description: "OCR language (ISO 639-2 code). Examples: 'eng', 'eng+spa', 'eng+fra'. Default: 'eng'",
             },
           },
           required: ["input_path", "output_path"],
@@ -183,6 +194,68 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description: "Search subdirectories recursively",
             },
           },
+        },
+      },
+      {
+        name: "ocr_pdf",
+        description: "Add searchable text layer to scanned PDFs using OCR. Creates PDF/A compliant documents suitable for legal archiving. Preserves original appearance while making content searchable and copy-able.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input_path: {
+              type: "string",
+              description: "Path to the scanned PDF to OCR",
+            },
+            output_path: {
+              type: "string",
+              description: "Path for the OCR'd output PDF",
+            },
+            language: {
+              type: "string",
+              description: "OCR language(s). Use ISO 639-2 codes. Examples: 'eng' (English), 'eng+spa' (English+Spanish), 'eng+fra+deu' (English+French+German). Default: 'eng'",
+            },
+            deskew: {
+              type: "boolean",
+              description: "Automatically straighten tilted scans (default: true)",
+            },
+            clean: {
+              type: "boolean",
+              description: "Clean up scan artifacts and noise (default: false)",
+            },
+            rotate: {
+              type: "boolean",
+              description: "Auto-rotate pages to correct orientation (default: true)",
+            },
+            force_ocr: {
+              type: "boolean",
+              description: "Force OCR even if text layer already exists (default: false)",
+            },
+            output_type: {
+              type: "string",
+              enum: ["pdf", "pdfa", "pdfa-1", "pdfa-2", "pdfa-3"],
+              description: "Output format. Use 'pdfa-2' for legal archiving compliance (default: pdfa-2)",
+            },
+            optimize: {
+              type: "number",
+              enum: [0, 1, 2, 3],
+              description: "Optimization level: 0=off, 1=lossless, 2=lossy, 3=aggressive (default: 1)",
+            },
+          },
+          required: ["input_path", "output_path"],
+        },
+      },
+      {
+        name: "extract_text",
+        description: "Extract all text content from a PDF. Useful for analysis, indexing, or review.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            input_path: {
+              type: "string",
+              description: "Path to the PDF to extract text from",
+            },
+          },
+          required: ["input_path"],
         },
       },
     ],
@@ -274,6 +347,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           pages: args.pages as string | undefined,
           preset: args.preset as OptimizationPreset | undefined,
           exhibitLabel: args.exhibit_label as string | undefined,
+          ocr: args.ocr as boolean | undefined,
+          ocrLanguage: args.ocr_language as string | undefined,
         });
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -295,6 +370,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: "text", text: JSON.stringify(files, null, 2) }],
+        };
+      }
+
+      case "ocr_pdf": {
+        const result = await ocrPdf({
+          inputPath: args.input_path as string,
+          outputPath: args.output_path as string,
+          language: args.language as string | undefined,
+          deskew: args.deskew as boolean | undefined,
+          clean: args.clean as boolean | undefined,
+          rotate: args.rotate as boolean | undefined,
+          forceOcr: args.force_ocr as boolean | undefined,
+          outputType: args.output_type as OcrOutputType | undefined,
+          optimize: args.optimize as OcrOptimizeLevel | undefined,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "extract_text": {
+        const text = await extractText(args.input_path as string);
+        return {
+          content: [{ type: "text", text }],
         };
       }
 

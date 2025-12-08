@@ -7,7 +7,9 @@ A professional toolkit for managing legal exhibits - merge, split, and optimize 
 - **Split PDFs**: Extract individual pages from Figma exports
 - **Merge PDFs**: Combine multiple pages/documents into single exhibits
 - **Optimize PDFs**: Compress with Ghostscript (matches Adobe Acrobat quality)
-- **Full Pipeline**: Process Figma → Split → Merge → Optimize in one command
+- **OCR Support**: Make scanned documents searchable with Tesseract OCR
+- **PDF/A Compliance**: Create legally-archivable documents
+- **Full Pipeline**: Process Figma → Split → Merge → OCR → Optimize in one command
 - **MCP Server**: Integrate with Claude and other AI assistants
 - **Cloudflare API**: Remote file storage and basic operations
 
@@ -24,8 +26,8 @@ A professional toolkit for managing legal exhibits - merge, split, and optimize 
 │  │                  │         │                              │  │
 │  │  • qpdf          │ ◄─────► │  • File upload/download      │  │
 │  │  • ghostscript   │         │  • Basic merge/split         │  │
-│  │  • Full optimize │         │  • Job queue                 │  │
-│  │                  │         │  • R2 storage                │  │
+│  │  • ocrmypdf      │         │  • Job queue                 │  │
+│  │  • tesseract     │         │  • R2 storage                │  │
 │  └──────────────────┘         └──────────────────────────────┘  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -39,7 +41,7 @@ A professional toolkit for managing legal exhibits - merge, split, and optimize 
 
 ```bash
 # macOS (Homebrew)
-brew install qpdf gs poppler
+brew install qpdf gs poppler ocrmypdf tesseract
 
 # Or use the installer script
 npm run install:deps
@@ -120,7 +122,7 @@ Optimize a PDF for maximum compression with high quality.
 | `default` | 150 | Smart optimization |
 
 ### `process_exhibit`
-Full pipeline: Split → Merge selected pages → Optimize.
+Full pipeline: Split → Merge selected pages → OCR (optional) → Optimize.
 
 ```json
 {
@@ -128,12 +130,52 @@ Full pipeline: Split → Merge selected pages → Optimize.
   "output_path": "./exhibits/exhibit_a.pdf",
   "pages": "1-3,5,7-9",
   "preset": "printer",
-  "exhibit_label": "Exhibit A"
+  "exhibit_label": "Exhibit A",
+  "ocr": true,
+  "ocr_language": "eng"
+}
+```
+
+### `ocr_pdf`
+Add searchable text layer to scanned PDFs. Creates PDF/A compliant documents.
+
+```json
+{
+  "input_path": "./scanned-document.pdf",
+  "output_path": "./searchable-document.pdf",
+  "language": "eng",
+  "deskew": true,
+  "rotate": true,
+  "output_type": "pdfa-2",
+  "optimize": 1
+}
+```
+
+**Language codes** (ISO 639-2):
+| Code | Language | Multi-language Example |
+|------|----------|------------------------|
+| `eng` | English | `eng` |
+| `spa` | Spanish | `eng+spa` |
+| `fra` | French | `eng+fra+deu` |
+| `deu` | German | |
+| `chi_sim` | Chinese (Simplified) | |
+
+**Output types**:
+- `pdfa-2`: Recommended for legal archiving (ISO 19005-2)
+- `pdfa-3`: Latest PDF/A standard with embedded files
+- `pdf`: Standard PDF (no archiving compliance)
+
+### `extract_text`
+Extract all text content from a PDF for analysis or review.
+
+```json
+{
+  "input_path": "./document.pdf"
 }
 ```
 
 ### `check_dependencies`
-Verify all system tools are installed.
+Verify all system tools are installed (including OCR).
 
 ### `list_pdfs`
 List PDF files with metadata (size, page count).
@@ -218,7 +260,7 @@ npm run worker:deploy
 
 *Requires external processor for Ghostscript optimization.
 
-## Workflow Example
+## Workflow Examples
 
 ### Processing Figma Legal Exhibits
 
@@ -248,6 +290,37 @@ npm run worker:deploy
       -sOutputFile=exhibit_a.pdf selected.pdf
    ```
 
+### Processing Scanned Documents with OCR
+
+1. **For opposing counsel's scanned PDFs**:
+   ```
+   User: OCR this scanned deposition transcript and make it searchable
+
+   Claude: I'll use the ocr_pdf tool to:
+   - Add searchable text layer
+   - Auto-deskew tilted pages
+   - Create PDF/A-2 compliant output
+
+   Result: 45 pages processed, document is now searchable
+   ```
+
+2. **Via CLI**:
+   ```bash
+   # OCR with PDF/A-2 output for legal archiving
+   ocrmypdf --deskew --rotate-pages \
+            --output-type pdfa-2 \
+            scanned.pdf searchable.pdf
+   ```
+
+3. **Multi-language documents** (e.g., bilingual contracts):
+   ```json
+   {
+     "input_path": "./bilingual-contract.pdf",
+     "output_path": "./searchable-contract.pdf",
+     "language": "eng+spa"
+   }
+   ```
+
 ## Optimization Quality Comparison
 
 | Tool | Compression | Quality | Speed |
@@ -270,6 +343,7 @@ legal-exhibits-toolkit/
 │   │   │   ├── split.ts
 │   │   │   ├── merge.ts
 │   │   │   ├── optimize.ts
+│   │   │   ├── ocr.ts
 │   │   │   └── process-exhibit.ts
 │   │   └── utils/        # Helper utilities
 │   └── package.json
@@ -290,7 +364,9 @@ legal-exhibits-toolkit/
 ### System Dependencies
 - **qpdf** ≥ 11.0 (PDF manipulation)
 - **ghostscript** ≥ 10.0 (optimization)
-- **poppler** (optional, for page count)
+- **ocrmypdf** ≥ 16.0 (OCR processing)
+- **tesseract** ≥ 5.0 (OCR engine)
+- **poppler** (recommended, for page count)
 
 ### Node.js
 - Node.js ≥ 18.0
@@ -310,6 +386,18 @@ brew install gs  # macOS
 sudo apt install ghostscript  # Ubuntu/Debian
 ```
 
+### "ocrmypdf not found"
+```bash
+brew install ocrmypdf tesseract  # macOS
+sudo apt install ocrmypdf tesseract-ocr  # Ubuntu/Debian
+```
+
+### OCR produces poor results
+- Ensure document is high-resolution (300+ DPI)
+- Enable `deskew: true` for tilted scans
+- Enable `clean: true` for noisy documents
+- Try different languages if text is multilingual
+
 ### Large file processing timeout
 Increase the timeout in your MCP client or process in smaller batches.
 
@@ -324,6 +412,8 @@ MIT
 
 - [QPDF Documentation](https://qpdf.readthedocs.io/)
 - [Ghostscript PDF Optimization](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html)
+- [OCRmyPDF Documentation](https://ocrmypdf.readthedocs.io/)
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
 - [MCP Protocol Specification](https://modelcontextprotocol.io/specification/2025-03-26)
 - [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
 - [pdf-lib Library](https://pdf-lib.js.org/)

@@ -92,6 +92,26 @@ export async function checkDependencies(): Promise<DependencyCheckResult> {
     installCommand: "brew install poppler",
   });
 
+  // Check ocrmypdf (for OCR)
+  const ocrmypdf = await checkCommand("ocrmypdf", "--version");
+  dependencies.push({
+    name: "ocrmypdf (OCR)",
+    installed: ocrmypdf.installed,
+    version: ocrmypdf.version,
+    path: ocrmypdf.path,
+    installCommand: "brew install ocrmypdf",
+  });
+
+  // Check tesseract (OCR engine)
+  const tesseract = await checkCommand("tesseract", "--version");
+  dependencies.push({
+    name: "tesseract (OCR engine)",
+    installed: tesseract.installed,
+    version: tesseract.version,
+    path: tesseract.path,
+    installCommand: "brew install tesseract",
+  });
+
   const allInstalled = dependencies
     .filter((d) => !d.name.includes("optional"))
     .every((d) => d.installed);
