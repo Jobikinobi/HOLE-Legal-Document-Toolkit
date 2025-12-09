@@ -19,6 +19,7 @@ import { PDFDocument } from "pdf-lib";
 interface Env {
   PDF_BUCKET: R2Bucket;
   JOB_STATUS: KVNamespace;
+  ASSETS: Fetcher;
   ENVIRONMENT: string;
   MAX_FILE_SIZE_MB: string;
   PROCESSOR_WEBHOOK_URL?: string;
@@ -42,22 +43,36 @@ const app = new Hono<{ Bindings: Env }>();
 // Enable CORS
 app.use("*", cors());
 
-// Health check
-app.get("/", (c) => {
-  return c.json({
-    name: "Legal Exhibits Toolkit API",
-    version: "1.0.0",
-    status: "healthy",
-    endpoints: {
-      upload: "POST /upload",
-      download: "GET /files/:key",
-      list: "GET /files",
-      merge: "POST /merge",
-      split: "POST /split",
-      optimize: "POST /optimize (requires external processor)",
-      jobs: "GET /jobs/:id",
-    },
-  });
+// Root route - Serve dashboard for browsers, JSON for API clients
+app.get("/", async (c) => {
+  const accept = c.req.header("Accept") || "";
+
+  // If client explicitly requests JSON, return API response
+  // This allows MCP server and other API clients to get JSON
+  if (accept.includes("application/json")) {
+    return c.json({
+      name: "Legal Exhibits Toolkit API",
+      version: "1.0.0",
+      status: "healthy",
+      endpoints: {
+        upload: "POST /upload",
+        download: "GET /files/:key",
+        list: "GET /files",
+        merge: "POST /merge",
+        split: "POST /split",
+        optimize: "POST /optimize (requires external processor)",
+        jobs: "GET /jobs/:id",
+      },
+    });
+  }
+
+  // Browser request - serve R2 Explorer dashboard
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(new Request("https://dummy/index.html"));
+  }
+
+  // Fallback if assets not available
+  return c.json({ error: "Dashboard not available" }, 503);
 });
 
 // ============================================
@@ -518,5 +533,28 @@ function parsePageRange(range: string, totalPages: number): number[] {
 
   return Array.from(pages).sort((a, b) => a - b);
 }
+
+// Catch-all route for dashboard assets (must be last)
+app.get("/*", async (c) => {
+  // Only serve dashboard assets for non-API paths
+  const path = c.req.path;
+
+  // API paths should not fall through to assets
+  if (path.startsWith("/upload") ||
+      path.startsWith("/files") ||
+      path.startsWith("/merge") ||
+      path.startsWith("/split") ||
+      path.startsWith("/optimize") ||
+      path.startsWith("/jobs")) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  // Serve dashboard assets for everything else
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+
+  return c.json({ error: "Dashboard not available" }, 404);
+});
 
 export default app;

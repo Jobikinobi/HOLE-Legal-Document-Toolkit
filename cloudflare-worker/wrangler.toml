@@ -12,6 +12,13 @@ routes = [
   { pattern = "legal-exhibits.theholetruth.org", custom_domain = true }
 ]
 
+# Static assets for R2 Explorer dashboard
+[assets]
+directory = "../node_modules/r2-explorer/dashboard"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"
+
 # R2 bucket for storing PDFs
 [[r2_buckets]]
 binding = "PDF_BUCKET"
