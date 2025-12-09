@@ -18,10 +18,15 @@
   - ID: 4ab32cdc37ab43f5bc8e8fe62df88d10
   - Purpose: Track processing jobs
 
-- ✅ **rclone** installed and configured
+- ✅ **Cloudflare Secrets** configured
+  - R2 credentials stored securely
+  - Never stored in files or git
+  - Authentication required to access
+
+- ✅ **rclone** installed
   - Remote: `legal-exhibits-r2`
   - Mount point: `~/legal-exhibits-r2`
-  - Ready for FUSE mounting
+  - Configured via Cloudflare Secrets
 
 ### MCP Server
 - ✅ Local MCP server fully functional
@@ -30,26 +35,21 @@
 
 ## 📋 Manual Steps Needed
 
-### 1. Configure R2 API Credentials (5 minutes)
+### 1. Configure Local R2 Access (2 minutes)
 
-Get your R2 API token:
-1. Visit: https://dash.cloudflare.com/1a25a792e801e687b9fe4932030cf6a6/r2/api-tokens
-2. Click "Create API token"
-3. Permissions: Object Read & Write
-4. Apply to bucket: `legal-exhibits`
-5. Create token and copy the credentials
+**Credentials are stored securely in Cloudflare Secrets** and never in files.
 
-Update rclone:
+Configure rclone for local use:
 ```bash
-rclone config update legal-exhibits-r2 \
-  access_key_id YOUR_ACCESS_KEY_ID \
-  secret_access_key YOUR_SECRET_ACCESS_KEY
+./scripts/configure-r2-from-secrets.sh
 ```
 
-Test the connection:
-```bash
-rclone ls legal-exhibits-r2:legal-exhibits
-```
+This script will:
+- Verify you're authenticated with Cloudflare
+- Let you choose your preferred method (Worker dev, .dev.vars, or rclone)
+- Configure access without storing credentials in git
+
+See [docs/SECRETS-MANAGEMENT.md](docs/SECRETS-MANAGEMENT.md) for detailed security info.
 
 ### 2. Mount R2 Bucket (30 seconds)
 

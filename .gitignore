@@ -32,6 +32,19 @@ npm-debug.log*
 # Wrangler
 .wrangler/
 
+# Secrets and credentials (never commit)
+secrets.json
+credentials.json
+*.pem
+*.key
+
+# rclone config contains R2 credentials
+.config/rclone/
+rclone.conf
+
+# R2 mount point
+legal-exhibits-r2/
+
 # Test coverage
 coverage/
 
