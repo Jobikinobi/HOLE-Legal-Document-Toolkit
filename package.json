@@ -29,5 +29,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "workers-mcp": "^0.0.13"
   }
 }
