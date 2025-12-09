@@ -4,9 +4,10 @@
 
 ### Infrastructure
 - ✅ **Cloudflare Worker API** deployed
-  - URL: https://legal-exhibits-api.joe-1a2.workers.dev
+  - **Secure URL:** https://legal-exhibits.theholetruth.org (Protected by Cloudflare Access)
+  - Legacy URL: https://legal-exhibits-api.joe-1a2.workers.dev (still works)
   - Account: The HOLE Foundation (1a25a792e801e687b9fe4932030cf6a6)
-  - Status: Live and responding
+  - Status: ✅ Live and **authentication required**
 
 - ✅ **R2 Storage** configured
   - Bucket: `legal-exhibits`
@@ -17,6 +18,12 @@
   - Binding: `JOB_STATUS`
   - ID: 4ab32cdc37ab43f5bc8e8fe62df88d10
   - Purpose: Track processing jobs
+
+- ✅ **Cloudflare Access** configured
+  - Zero-trust authentication enabled
+  - Custom domain: legal-exhibits.theholetruth.org
+  - Protected by authentication (verified with 302 redirect)
+  - Login required for all API access
 
 - ✅ **Cloudflare Secrets** configured
   - R2 credentials stored securely

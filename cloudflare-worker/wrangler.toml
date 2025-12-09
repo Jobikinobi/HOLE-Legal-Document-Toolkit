@@ -7,6 +7,11 @@ compatibility_flags = ["nodejs_compat"]
 # Cloudflare account configuration
 account_id = "1a25a792e801e687b9fe4932030cf6a6"  # The HOLE Foundation
 
+# Custom domain for Cloudflare Access protection
+routes = [
+  { pattern = "legal-exhibits.theholetruth.org", custom_domain = true }
+]
+
 # R2 bucket for storing PDFs
 [[r2_buckets]]
 binding = "PDF_BUCKET"
