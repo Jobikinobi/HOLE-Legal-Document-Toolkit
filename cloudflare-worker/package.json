@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "hono": "^4.0.0",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "r2-explorer": "^1.1.13"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231218.0",

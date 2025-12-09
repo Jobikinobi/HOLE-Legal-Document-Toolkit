@@ -1,0 +1,29 @@
+# R2 Explorer for Legal Exhibits
+name = "legal-exhibits-explorer"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+account_id = "1a25a792e801e687b9fe4932030cf6a6"
+
+# Custom domain for dashboard
+routes = [
+  { pattern = "exhibits.theholetruth.org", custom_domain = true }
+]
+
+# Static assets for dashboard UI
+[assets]
+directory = "node_modules/r2-explorer/dashboard"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"
+
+# Connect to legal-exhibits R2 bucket
+[[r2_buckets]]
+binding = "bucket"
+bucket_name = "legal-exhibits"
+
+# Enable observability
+[observability]
+enabled = true
+
+# Upload source maps for debugging
+upload_source_maps = true

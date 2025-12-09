@@ -1,0 +1,17 @@
+# Cloudflare Workers MCP Server for Legal Exhibits Toolkit
+name = "legal-exhibits-mcp"
+main = "dist/worker.mjs"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Uncomment and configure for production
+# account_id = "your-account-id"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+
+# Development settings
+[dev]
+port = 8788
+local_protocol = "http"
