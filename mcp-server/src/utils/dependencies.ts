@@ -1,10 +1,12 @@
 /**
  * Dependency checking utilities
  * Verifies that required system tools are installed
+ * Now supports both Mistral AI (cloud OCR) and local OCR (ocrmypdf/tesseract)
  */
 
 import { exec } from "child_process";
 import { promisify } from "util";
+import { createMistralOcrService } from "../services/mistral-ocr.js";
 
 const execAsync = promisify(exec);
 
@@ -14,6 +16,7 @@ interface DependencyStatus {
   version?: string;
   path?: string;
   installCommand?: string;
+  optional?: boolean;  // New: marks optional dependencies
 }
 
 interface DependencyCheckResult {
@@ -92,46 +95,87 @@ export async function checkDependencies(): Promise<DependencyCheckResult> {
     installCommand: "brew install poppler",
   });
 
-  // Check ocrmypdf (for OCR)
+  // Check for OCR options: Mistral AI (cloud) OR ocrmypdf+tesseract (local)
+  const mistralApiKey = process.env.MISTRAL_API_KEY;
+  let mistralWorking = false;
+
+  if (mistralApiKey) {
+    try {
+      const mistralService = createMistralOcrService(mistralApiKey);
+      const check = await mistralService.checkConnection();
+      mistralWorking = check.connected;
+      dependencies.push({
+        name: "Mistral AI OCR (Premium)",
+        installed: mistralWorking,
+        version: "API Connected",
+        installCommand: "Set MISTRAL_API_KEY environment variable",
+        optional: true,
+      });
+    } catch {
+      dependencies.push({
+        name: "Mistral AI OCR (Premium)",
+        installed: false,
+        installCommand: "Set MISTRAL_API_KEY with valid API key",
+        optional: true,
+      });
+    }
+  } else {
+    dependencies.push({
+      name: "Mistral AI OCR (Premium)",
+      installed: false,
+      installCommand: "Set MISTRAL_API_KEY environment variable (get key from https://console.mistral.ai)",
+      optional: true,
+    });
+  }
+
+  // Check ocrmypdf (for local OCR fallback)
   const ocrmypdf = await checkCommand("ocrmypdf", "--version");
   dependencies.push({
-    name: "ocrmypdf (OCR)",
+    name: "ocrmypdf (Free OCR)",
     installed: ocrmypdf.installed,
     version: ocrmypdf.version,
     path: ocrmypdf.path,
     installCommand: "brew install ocrmypdf",
+    optional: mistralWorking,  // Optional if Mistral is working
   });
 
-  // Check tesseract (OCR engine)
+  // Check tesseract (OCR engine for local OCR)
   const tesseract = await checkCommand("tesseract", "--version");
   dependencies.push({
-    name: "tesseract (OCR engine)",
+    name: "tesseract (Free OCR Engine)",
     installed: tesseract.installed,
     version: tesseract.version,
     path: tesseract.path,
     installCommand: "brew install tesseract",
+    optional: mistralWorking,  // Optional if Mistral is working
   });
 
   const allInstalled = dependencies
-    .filter((d) => !d.name.includes("optional"))
+    .filter((d) => !d.optional)
     .every((d) => d.installed);
 
   const missingRequired = dependencies
-    .filter((d) => !d.installed && !d.name.includes("optional"))
+    .filter((d) => !d.installed && !d.optional)
     .map((d) => d.name);
 
+  // Check if we have at least one OCR option
+  const hasOcrOption = mistralWorking || (ocrmypdf.installed && tesseract.installed);
+
   let message: string;
-  if (allInstalled) {
-    message = "All required dependencies are installed and ready!";
+  if (allInstalled && hasOcrOption) {
+    const ocrMethod = mistralWorking ? "Mistral AI (Premium)" : "Tesseract (Free)";
+    message = `All required dependencies are installed and ready! OCR: ${ocrMethod}`;
+  } else if (allInstalled && !hasOcrOption) {
+    message = "Core dependencies installed. For OCR, either:\n  1. Set MISTRAL_API_KEY (premium, cloud-based)\n  2. Install: brew install ocrmypdf tesseract (free, local)";
   } else {
     message = `Missing required dependencies: ${missingRequired.join(", ")}. Install with:\n${dependencies
-      .filter((d) => !d.installed && !d.name.includes("optional"))
+      .filter((d) => !d.installed && !d.optional)
       .map((d) => `  ${d.installCommand}`)
       .join("\n")}`;
   }
 
   return {
-    allInstalled,
+    allInstalled: allInstalled && hasOcrOption,
     dependencies,
     message,
   };

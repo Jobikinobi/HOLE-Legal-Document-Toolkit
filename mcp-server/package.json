@@ -17,6 +17,7 @@
     "worker:deploy": "workers-mcp docgen src/index.ts && wrangler deploy"
   },
   "dependencies": {
+    "@mistralai/mistralai": "^1.10.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "pdf-lib": "^1.17.1",
     "workers-mcp": "^0.0.13",
