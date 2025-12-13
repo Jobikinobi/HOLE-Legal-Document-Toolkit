@@ -70,7 +70,7 @@ export async function listR2Files(params: {
       };
     }
 
-    const data: ListFilesResponse = await response.json();
+    const data = await response.json() as ListFilesResponse;
 
     return {
       success: true,

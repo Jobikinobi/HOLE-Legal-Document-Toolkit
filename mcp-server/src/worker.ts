@@ -8,11 +8,17 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ProxyToSelf } from 'workers-mcp';
 
+// Environment variables interface
+interface Env {
+  SHARED_SECRET?: string;
+  MISTRAL_API_KEY?: string;
+}
+
 // Import tool implementations
 // Note: These tools use native binaries (qpdf, ghostscript) so they won't actually run in Workers.
 // This server serves as documentation and a bridge - actual processing happens elsewhere.
 
-export default class LegalExhibitsMCP extends WorkerEntrypoint {
+export default class LegalExhibitsMCP extends WorkerEntrypoint<Env> {
   /**
    * Split a multi-page PDF into individual single-page PDFs
    */
@@ -247,6 +253,6 @@ export default class LegalExhibitsMCP extends WorkerEntrypoint {
    * Required fetch handler for MCP protocol
    */
   async fetch(request: Request): Promise<Response> {
-    return new ProxyToSelf(this).fetch(request);
+    return new ProxyToSelf(this as any).fetch(request);
   }
 }
