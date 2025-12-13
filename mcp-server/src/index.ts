@@ -687,6 +687,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // Start the server
 async function main() {
   const transport = new StdioServerTransport();
+
+  // Handle transport errors silently (EPIPE, etc.)
+  transport.onerror = (error) => {
+    // Silently ignore transport errors - logging corrupts MCP protocol
+  };
+
+  // Handle server errors
+  server.onerror = (error) => {
+    // Silently ignore server errors - logging corrupts MCP protocol
+  };
+
+  // Handle unhandled rejections
+  process.on('unhandledRejection', (error) => {
+    // Silently ignore - logging corrupts MCP protocol
+  });
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    // Silently ignore - logging corrupts MCP protocol
+  });
+
   await server.connect(transport);
   // Server started - do not log to stdio as it corrupts the MCP protocol
 }
