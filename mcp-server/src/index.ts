@@ -688,7 +688,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Legal Exhibits MCP Server started");
+  // Server started - do not log to stdio as it corrupts the MCP protocol
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  // Silently fail - logging to stderr corrupts the MCP protocol
+  process.exit(1);
+});

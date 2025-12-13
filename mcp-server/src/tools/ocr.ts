@@ -378,7 +378,7 @@ export async function extractText(inputPath: string): Promise<string> {
       return result.text;
     } catch (error) {
       // Fall through to other methods
-      console.warn('Mistral OCR failed, trying fallback methods:', error);
+      // Note: Do not log here as it corrupts the MCP protocol
     }
   }
 

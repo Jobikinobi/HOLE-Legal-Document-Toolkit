@@ -167,15 +167,12 @@ export async function redactPdf(options: RedactOptions): Promise<RedactResult> {
   // Note: Pattern-based redaction requires text extraction which pdf-lib
   // doesn't fully support. For pattern redaction, we'd need to use
   // a tool like qpdf or pdftk, or process through OCR first.
-  // This is a placeholder that logs a warning.
   const patternCount = patterns.length;
-  if (patternCount > 0) {
-    console.error(
-      "Warning: Pattern-based redaction requires OCR/text extraction. " +
+  const warningMessage = patternCount > 0
+    ? "Warning: Pattern-based redaction requires OCR/text extraction. " +
       "Use the extract_text tool first to identify coordinates, " +
       "then apply area-based redactions."
-    );
-  }
+    : undefined;
 
   // Save the modified PDF
   const modifiedPdfBytes = await pdfDoc.save();
@@ -202,6 +199,7 @@ export async function redactPdf(options: RedactOptions): Promise<RedactResult> {
       totalBoxes,
     },
     message: `Applied ${totalBoxes} redaction(s) to ${path.basename(inputPath)}`,
+    ...(warningMessage && { warning: warningMessage }),
   };
 }
 
