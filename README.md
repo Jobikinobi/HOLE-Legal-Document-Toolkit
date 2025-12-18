@@ -7,7 +7,9 @@ A professional toolkit for managing legal exhibits - merge, split, and optimize 
 - **Split PDFs**: Extract individual pages from Figma exports
 - **Merge PDFs**: Combine multiple pages/documents into single exhibits
 - **Optimize PDFs**: Compress with Ghostscript (matches Adobe Acrobat quality)
-- **OCR Support**: Make scanned documents searchable with Tesseract OCR
+- **OCR Support**: Premium Mistral AI OCR (cloud) or free Tesseract (local)
+  - **Mistral AI**: Superior accuracy for legal documents (requires API key)
+  - **Tesseract**: Free offline OCR (requires system installation)
 - **Bates Numbering**: Add sequential page stamps for discovery/litigation
 - **Redaction**: Black out sensitive content with labels
 - **Watermarking**: Add CONFIDENTIAL/DRAFT stamps to documents
@@ -30,26 +32,69 @@ A professional toolkit for managing legal exhibits - merge, split, and optimize 
 │  │                  │         │                              │  │
 │  │  • qpdf          │ ◄─────► │  • File upload/download      │  │
 │  │  • ghostscript   │         │  • Basic merge/split         │  │
-│  │  • ocrmypdf      │         │  • Job queue                 │  │
-│  │  • tesseract     │         │  • R2 storage                │  │
+│  │  • Mistral AI ⭐ │         │  • Job queue                 │  │
+│  │  • ocrmypdf*     │         │  • R2 storage                │  │
+│  │  • tesseract*    │         │                              │  │
 │  └──────────────────┘         └──────────────────────────────┘  │
+│                                                                  │
+│  * Optional fallback if Mistral API key not configured          │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Why hybrid?** Cloudflare Workers can't run native binaries (Ghostscript, QPDF). The MCP server handles heavy processing locally, while Workers handle storage and API.
 
+**OCR Options:**
+- **Mistral AI** ⭐ (Recommended): Cloud-based, superior accuracy for legal documents (~$0.03-0.06/doc)
+- **Tesseract** (Free): Local OCR engine, good for basic needs, works offline
+
 ## Quick Start
 
 ### 1. Install System Dependencies
 
 ```bash
-# macOS (Homebrew)
-brew install qpdf gs poppler ocrmypdf tesseract
+# Required: Core PDF processing tools
+brew install qpdf gs poppler
 
-# Or use the installer script
+# Optional: Local OCR (Tesseract - free but moderate accuracy)
+brew install ocrmypdf tesseract
+
+# Or use the installer script for all dependencies
 npm run install:deps
 ```
+
+### 1.5. Configure OCR (Choose One)
+
+**Option A: Mistral AI (Premium - Recommended for Legal Documents)**
+```bash
+# Get API key from https://console.mistral.ai
+export MISTRAL_API_KEY="your_api_key_here"
+
+# Or add to .env file
+echo "MISTRAL_API_KEY=your_api_key_here" > .env
+```
+
+Benefits:
+- ✅ Superior accuracy on legal documents
+- ✅ Better handling of poor-quality scans
+- ✅ Multi-language support (automatic)
+- ✅ No system installation required
+- 💰 Cost: ~$0.03-0.06 per document
+
+**Option B: Tesseract (Free - Good for Basic Needs)**
+```bash
+# Already installed if you ran brew install above
+brew install ocrmypdf tesseract
+
+# For additional languages:
+brew install tesseract-lang
+```
+
+Benefits:
+- ✅ Completely free
+- ✅ Works offline
+- ✅ No API keys needed
+- ⚠️ Moderate accuracy on degraded documents
 
 ### 2. Install Node Dependencies
 
@@ -63,10 +108,75 @@ npm install
 npm run check:deps
 ```
 
-### 4. Run MCP Server
+### 4. Configure Claude Desktop (MCP Server)
+
+Add the Legal Exhibits MCP server to your Claude Desktop configuration:
+
+**macOS**: Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: Edit `%APPDATA%/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "legal-exhibits": {
+      "command": "node",
+      "args": [
+        "/Users/YOUR_USERNAME/path/to/HOLE-Legal-Document-Toolkit/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "MISTRAL_API_KEY": "your_mistral_api_key_here"
+      }
+    }
+  }
+}
+```
+
+**Important**: Replace:
+- `YOUR_USERNAME` with your actual username
+- `your_mistral_api_key_here` with your Mistral API key from https://console.mistral.ai
+- Or omit the `env` section entirely to use free Tesseract OCR (requires system installation)
+
+**Without Mistral (Free OCR)**:
+```json
+{
+  "mcpServers": {
+    "legal-exhibits": {
+      "command": "node",
+      "args": [
+        "/Users/YOUR_USERNAME/path/to/HOLE-Legal-Document-Toolkit/mcp-server/dist/index.js"
+      ]
+    }
+  }
+}
+```
+
+### 5. Build and Restart Claude Desktop
 
 ```bash
-npm run mcp:dev
+# Build the MCP server
+cd mcp-server
+npm run build
+
+# Restart Claude Desktop to load the MCP server
+```
+
+## MCP Server Configuration
+
+For detailed setup instructions including Claude Desktop configuration, see [CLAUDE_DESKTOP_SETUP.md](CLAUDE_DESKTOP_SETUP.md).
+
+**Quick Config**: Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "legal-exhibits": {
+      "command": "node",
+      "args": ["/full/path/to/mcp-server/dist/index.js"],
+      "env": {
+        "MISTRAL_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}
 ```
 
 ## MCP Server Tools
@@ -141,7 +251,7 @@ Full pipeline: Split → Merge selected pages → OCR (optional) → Optimize.
 ```
 
 ### `ocr_pdf`
-Add searchable text layer to scanned PDFs. Creates PDF/A compliant documents.
+Add searchable text layer to scanned PDFs. Automatically uses Mistral AI if `MISTRAL_API_KEY` is set, otherwise falls back to Tesseract.
 
 ```json
 {
@@ -155,7 +265,11 @@ Add searchable text layer to scanned PDFs. Creates PDF/A compliant documents.
 }
 ```
 
-**Language codes** (ISO 639-2):
+**OCR Engine Selection** (automatic):
+- 🌟 **Mistral AI** (if `MISTRAL_API_KEY` set): Superior accuracy, especially for legal documents
+- 🆓 **Tesseract** (fallback): Free offline OCR when no API key is configured
+
+**Language codes** (Tesseract only):
 | Code | Language | Multi-language Example |
 |------|----------|------------------------|
 | `eng` | English | `eng` |
@@ -164,19 +278,28 @@ Add searchable text layer to scanned PDFs. Creates PDF/A compliant documents.
 | `deu` | German | |
 | `chi_sim` | Chinese (Simplified) | |
 
-**Output types**:
+Note: Mistral AI automatically detects languages - no language parameter needed.
+
+**Output types** (Tesseract only):
 - `pdfa-2`: Recommended for legal archiving (ISO 19005-2)
 - `pdfa-3`: Latest PDF/A standard with embedded files
 - `pdf`: Standard PDF (no archiving compliance)
 
+Note: Mistral AI currently outputs text to a sidecar file alongside the PDF.
+
 ### `extract_text`
-Extract all text content from a PDF for analysis or review.
+Extract all text content from a PDF for analysis or review. Uses Mistral AI OCR if available for superior accuracy on scanned documents.
 
 ```json
 {
   "input_path": "./document.pdf"
 }
 ```
+
+**Extraction methods** (automatic selection):
+1. **Mistral AI OCR** (if `MISTRAL_API_KEY` set) - Best for scanned documents
+2. **pdftotext** (fallback) - Fast for digital PDFs
+3. **ocrmypdf sidecar** (fallback) - If pdftotext fails
 
 ### `add_bates_numbers`
 Add sequential Bates stamps to legal documents. Essential for discovery and court filings.
