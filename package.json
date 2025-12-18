@@ -1,0 +1,36 @@
+{
+  "name": "legal-exhibits-toolkit",
+  "version": "1.0.0",
+  "description": "A toolkit for managing legal exhibits - merge, split, and optimize PDFs with Adobe Acrobat-level quality",
+  "type": "module",
+  "workspaces": [
+    "mcp-server",
+    "cloudflare-worker"
+  ],
+  "scripts": {
+    "mcp:dev": "npm run dev --workspace=mcp-server",
+    "mcp:build": "npm run build --workspace=mcp-server",
+    "mcp:start": "npm run start --workspace=mcp-server",
+    "worker:dev": "npm run dev --workspace=cloudflare-worker",
+    "worker:deploy": "npm run deploy --workspace=cloudflare-worker",
+    "install:deps": "bash scripts/install-dependencies.sh",
+    "check:deps": "bash scripts/check-dependencies.sh"
+  },
+  "keywords": [
+    "pdf",
+    "legal",
+    "exhibits",
+    "mcp",
+    "cloudflare",
+    "ghostscript",
+    "qpdf"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "workers-mcp": "^0.0.13"
+  }
+}

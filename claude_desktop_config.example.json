@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "legal-exhibits": {
+      "command": "node",
+      "args": [
+        "/Users/YOUR_USERNAME/Documents/GitHub/HOLE-Legal-Document-Toolkit/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "MISTRAL_API_KEY": "your_mistral_api_key_here"
+      }
+    }
+  }
+}

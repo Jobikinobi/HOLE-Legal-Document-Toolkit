@@ -1,0 +1,23 @@
+{
+  "name": "@legal-exhibits/cloudflare-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker API for legal exhibits - handles file storage and serves processed PDFs",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "pdf-lib": "^1.17.1",
+    "r2-explorer": "^1.1.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.2",
+    "wrangler": "^3.22.0"
+  }
+}
