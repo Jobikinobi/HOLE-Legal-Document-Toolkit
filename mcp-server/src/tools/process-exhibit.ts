@@ -2,6 +2,28 @@
  * Full Exhibit Processing Pipeline
  * Combines split, merge, and optimize into a single workflow
  * Perfect for processing Figma exports into final legal exhibit PDFs
+ *
+ * Compression Profiles Available:
+ * 300 DPI Profiles (Professional Quality):
+ * - "printer" (default): Standard high-quality profile (30-50% compression)
+ * - "legal-jpeg": JPEG compression for color images (70-85% compression)
+ * - "legal-balanced": Hybrid JPEG+LZW for mixed content (60-75% compression)
+ * - "legal-text": LZW for text-heavy documents (45-60% compression)
+ * - "legal-aggressive": Aggressive JPEG compression (75-85% compression)
+ * - "legal-archive": Lossless LZW for long-term archival (55-70% compression)
+ *
+ * 225 DPI Profiles (Digital-First, 45-50% Smaller):
+ * - "legal-jpeg-225": JPEG at 225 DPI (80-90% compression)
+ * - "legal-balanced-225": Hybrid at 225 DPI (70-80% compression)
+ * - "legal-text-225": LZW at 225 DPI (55-65% compression)
+ * - "legal-aggressive-225": Aggressive JPEG at 225 DPI (85-92% compression)
+ * - "legal-archive-225": LZW at 225 DPI (65-75% compression)
+ *
+ * Legacy Adobe Acrobat Presets (for backward compatibility):
+ * - "screen": 72 DPI (smallest size, web viewing)
+ * - "ebook": 150 DPI (digital distribution)
+ * - "prepress": 300 DPI (professional printing with color preservation)
+ * - "default": Smart optimization without aggressive downsampling
  */
 
 import * as path from "path";
