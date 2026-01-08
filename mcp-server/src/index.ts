@@ -34,6 +34,7 @@ import { ocrPdf, extractText, checkOcrInstalled, OcrOutputType, OcrOptimizeLevel
 import { addBatesNumbers, BatesPosition } from "./tools/bates.js";
 import { redactPdf, addWatermark } from "./tools/redact.js";
 import { generateToc, createEntriesFromFiles } from "./tools/toc.js";
+import { selectCompressionProfile, formatSelectionResult, validateAndNormalizeOptions, ProfileSelectorOptions } from "./tools/select-profile.js";
 import { checkDependencies } from "./utils/dependencies.js";
 import { listFiles } from "./utils/files.js";
 
@@ -109,7 +110,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "optimize_pdf",
-        description: "Optimize a PDF for maximum compression while maintaining high quality. Uses Ghostscript with Adobe Acrobat-equivalent settings.",
+        description: "Optimize a PDF for maximum compression while maintaining high quality. Choose from 11 compression profiles optimized for different use cases, with both 300 DPI (professional) and 225 DPI (digital-first) options.",
         inputSchema: {
           type: "object",
           properties: {
@@ -123,16 +124,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             preset: {
               type: "string",
-              enum: ["screen", "ebook", "printer", "prepress", "default"],
-              description: "Quality preset:\n- screen: 72 dpi, smallest size, good for web\n- ebook: 150 dpi, balanced quality/size\n- printer: 300 dpi, high quality for printing\n- prepress: 300 dpi, maximum quality (like Acrobat)\n- default: balanced optimization",
+              enum: [
+                "printer",
+                "legal-jpeg",
+                "legal-balanced",
+                "legal-text",
+                "legal-aggressive",
+                "legal-archive",
+                "legal-jpeg-225",
+                "legal-balanced-225",
+                "legal-text-225",
+                "legal-aggressive-225",
+                "legal-archive-225",
+                "screen",
+                "ebook",
+                "prepress",
+                "default",
+              ],
+              description:
+                "Compression profile - choose based on your document type and quality needs:\n\n" +
+                "300 DPI (Professional Quality):\n" +
+                "- printer: 30-50% compression, balanced, safe default\n" +
+                "- legal-jpeg: 70-85% compression, best for scanned documents\n" +
+                "- legal-balanced: 60-75% compression, mixed content (text + images)\n" +
+                "- legal-text: 45-60% compression, text-heavy documents & contracts\n" +
+                "- legal-aggressive: 75-85% compression, high-volume processing\n" +
+                "- legal-archive: 55-70% compression, long-term legal storage\n\n" +
+                "225 DPI (Digital-First, 45-60% smaller than 300 DPI):\n" +
+                "- legal-jpeg-225: 80-90% compression, digital archival\n" +
+                "- legal-balanced-225: 70-80% compression, digital documents\n" +
+                "- legal-text-225: 55-65% compression, digital contracts\n" +
+                "- legal-aggressive-225: 85-92% compression, bulk archival\n" +
+                "- legal-archive-225: 65-75% compression, digital storage\n\n" +
+                "Legacy Adobe Acrobat (for backward compatibility):\n" +
+                "- screen: 72 dpi, smallest size, web viewing\n" +
+                "- ebook: 150 dpi, balanced quality/size\n" +
+                "- prepress: 300 dpi, maximum quality\n" +
+                "- default: balanced optimization",
             },
             dpi: {
               type: "number",
-              description: "Custom DPI for image downsampling (overrides preset)",
+              description:
+                "Custom DPI for image downsampling (overrides preset DPI). Note: compression profiles have optimized DPI settings - use this only to override.",
             },
             grayscale: {
               type: "boolean",
-              description: "Convert to grayscale (further reduces size)",
+              description: "Convert to grayscale (further reduces file size by 10-20%)",
             },
           },
           required: ["input_path", "output_path"],
@@ -158,8 +195,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             preset: {
               type: "string",
-              enum: ["screen", "ebook", "printer", "prepress", "default"],
-              description: "Optimization quality preset (default: printer)",
+              enum: [
+                "printer",
+                "legal-jpeg",
+                "legal-balanced",
+                "legal-text",
+                "legal-aggressive",
+                "legal-archive",
+                "legal-jpeg-225",
+                "legal-balanced-225",
+                "legal-text-225",
+                "legal-aggressive-225",
+                "legal-archive-225",
+                "screen",
+                "ebook",
+                "prepress",
+                "default",
+              ],
+              description:
+                "Optimization profile (default: printer). Use legal-jpeg for scanned documents, legal-text for contracts, legal-aggressive for bulk processing, or 225 DPI variants for 45-50% smaller files.",
             },
             exhibit_label: {
               type: "string",
@@ -450,6 +504,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["output_path", "entries"],
         },
       },
+      {
+        name: "select_compression_profile",
+        description: "Interactive wizard to help select the best compression profile for your document. Asks about your use case, document type, and priority (quality vs file size), then recommends profiles ranked by fit. Optionally analyze an actual PDF to get personalized recommendations.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            use_case: {
+              type: "string",
+              enum: ["print", "digital", "archive", "bulk"],
+              description: "Intended use case for the document (print=will be printed, digital=email/cloud only, archive=long-term storage, bulk=high-volume processing)",
+            },
+            document_type: {
+              type: "string",
+              enum: ["scanned", "text", "mixed", "unknown"],
+              description: "Type of content (scanned=image-based, text=text-only like contracts, mixed=both, unknown=unsure)",
+            },
+            size_priority: {
+              type: "string",
+              enum: ["quality", "balanced", "aggressive"],
+              description: "Priority for optimization (quality=minimize loss, balanced=compromise, aggressive=maximum compression)",
+            },
+            will_print: {
+              type: "boolean",
+              description: "Will this document be printed later? Helps prioritize 300 DPI profiles.",
+            },
+            sample_pdf_path: {
+              type: "string",
+              description: "Optional: Path to a sample PDF to analyze for personalized recommendations. Detects images, text, color, signatures.",
+            },
+          },
+        },
+      },
+      {
+        name: "analyze_pdf_for_profile",
+        description: "Analyze a PDF document to detect its characteristics (images, text, color, signatures) and get profile recommendations. Returns detailed analysis and ranked profile suggestions based on document content.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            pdf_path: {
+              type: "string",
+              description: "Path to the PDF file to analyze",
+            },
+          },
+          required: ["pdf_path"],
+        },
+      },
     ],
   };
 });
@@ -670,6 +770,57 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };
+      }
+
+      case "select_compression_profile": {
+        const options: ProfileSelectorOptions = {
+          useCase: args.use_case as "print" | "digital" | "archive" | "bulk" | undefined,
+          documentType: args.document_type as "scanned" | "text" | "mixed" | "unknown" | undefined,
+          sizePriority: args.size_priority as "quality" | "balanced" | "aggressive" | undefined,
+          willPrint: args.will_print as boolean | undefined,
+          samplePdfPath: args.sample_pdf_path as string | undefined,
+        };
+
+        // Validate and normalize options
+        const validatedOptions = validateAndNormalizeOptions(options);
+
+        // Run the profile selector
+        const result = await selectCompressionProfile(validatedOptions);
+
+        // Format the result for display
+        const formattedResult = formatSelectionResult(result);
+
+        return {
+          content: [{ type: "text", text: formattedResult }],
+        };
+      }
+
+      case "analyze_pdf_for_profile": {
+        const { analyzePdf, formatAnalysisResult } = await import("./utils/pdf-analyzer.js");
+        const pdfPath = args.pdf_path as string;
+
+        try {
+          const analysis = await analyzePdf(pdfPath);
+          const { scoreProfiles, formatScoreResults } = await import("./utils/profile-scoring.js");
+
+          // Get profile recommendations based on detected characteristics
+          const scores = scoreProfiles({}, analysis);
+
+          const result =
+            formatAnalysisResult(analysis) +
+            "\n\n" +
+            formatScoreResults(scores);
+
+          return {
+            content: [{ type: "text", text: result }],
+          };
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          return {
+            content: [{ type: "text", text: `Failed to analyze PDF: ${errorMsg}` }],
+            isError: true,
+          };
+        }
       }
 
       default:

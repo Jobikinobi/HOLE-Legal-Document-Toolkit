@@ -1,12 +1,27 @@
 /**
  * PDF Optimization Tool
  * Optimizes PDFs for maximum compression while maintaining high quality
- * Uses Ghostscript with Adobe Acrobat-equivalent settings
+ * Uses Ghostscript with custom compression profiles
  *
- * Quality presets match Adobe Acrobat's optimization levels:
+ * Compression Profiles:
+ * 300 DPI (Professional Quality):
+ * - printer: Default high-quality profile (30-50% compression)
+ * - legal-jpeg: JPEG compression for color/grayscale (70-85% compression)
+ * - legal-balanced: Hybrid JPEG+LZW approach (60-75% compression)
+ * - legal-text: LZW for text-heavy documents (45-60% compression)
+ * - legal-aggressive: Aggressive JPEG quality (75-85% compression)
+ * - legal-archive: LZW archival profile (55-70% compression)
+ *
+ * 225 DPI (Digital-First, Higher Compression):
+ * - legal-jpeg-225: JPEG at 225 DPI (80-90% compression, 45-50% smaller than 300 DPI)
+ * - legal-balanced-225: Hybrid at 225 DPI (70-80% compression)
+ * - legal-text-225: LZW at 225 DPI (55-65% compression)
+ * - legal-aggressive-225: Aggressive JPEG at 225 DPI (85-92% compression)
+ * - legal-archive-225: LZW at 225 DPI (65-75% compression)
+ *
+ * Legacy Adobe Acrobat Presets (maintained for backward compatibility):
  * - screen: Smallest size, optimized for screen viewing (72 dpi)
  * - ebook: Balanced quality/size for digital distribution (150 dpi)
- * - printer: High quality for office printing (300 dpi)
  * - prepress: Maximum quality for professional printing (300 dpi, color preservation)
  * - default: Smart optimization without aggressive downsampling
  */
@@ -20,10 +35,32 @@ import {
   formatFileSize,
   getPdfPageCount,
 } from "../utils/files.js";
+import {
+  CompressionProfileName,
+  getProfile,
+} from "./compression-profiles.js";
 
 const execAsync = promisify(exec);
 
-export type OptimizationPreset = "screen" | "ebook" | "printer" | "prepress" | "default";
+export type OptimizationPreset =
+  // Legacy Adobe Acrobat presets
+  | "screen"
+  | "ebook"
+  | "prepress"
+  | "default"
+  // New compression profiles (300 DPI)
+  | "printer"
+  | "legal-jpeg"
+  | "legal-balanced"
+  | "legal-text"
+  | "legal-aggressive"
+  | "legal-archive"
+  // 225 DPI compression profiles
+  | "legal-jpeg-225"
+  | "legal-balanced-225"
+  | "legal-text-225"
+  | "legal-aggressive-225"
+  | "legal-archive-225";
 
 interface OptimizeOptions {
   inputPath: string;
@@ -60,8 +97,15 @@ interface OptimizeResult {
 }
 
 /**
+ * Check if preset is a legacy Adobe Acrobat preset
+ */
+function isLegacyPreset(preset: OptimizationPreset): boolean {
+  return ["screen", "ebook", "prepress", "default"].includes(preset);
+}
+
+/**
  * Build Ghostscript command for PDF optimization
- * These settings are calibrated to match Adobe Acrobat's optimization
+ * Uses compression profiles for most presets, legacy settings for Adobe Acrobat compatibility
  */
 function buildGhostscriptCommand(
   inputPath: string,
@@ -82,8 +126,8 @@ function buildGhostscriptCommand(
     "-dEmbedAllFonts=true",
   ];
 
-  // Preset-specific settings
-  const presetSettings: Record<OptimizationPreset, string[]> = {
+  // Preset-specific settings - legacy Adobe Acrobat presets
+  const legacyPresetSettings: Record<string, string[]> = {
     screen: [
       "-dPDFSETTINGS=/screen",
       "-dColorImageResolution=72",
@@ -95,12 +139,6 @@ function buildGhostscriptCommand(
       "-dColorImageResolution=150",
       "-dGrayImageResolution=150",
       "-dMonoImageResolution=300",
-    ],
-    printer: [
-      "-dPDFSETTINGS=/printer",
-      "-dColorImageResolution=300",
-      "-dGrayImageResolution=300",
-      "-dMonoImageResolution=1200",
     ],
     prepress: [
       "-dPDFSETTINGS=/prepress",
@@ -119,13 +157,27 @@ function buildGhostscriptCommand(
     ],
   };
 
+  // Get preset-specific flags
+  let presetFlags: string[] = [];
+
+  if (isLegacyPreset(preset)) {
+    // Use legacy preset settings for Adobe Acrobat compatibility
+    presetFlags = legacyPresetSettings[preset] || [];
+  } else {
+    // Use compression profile settings
+    try {
+      const profile = getProfile(preset as CompressionProfileName);
+      presetFlags = profile.considerGhostscriptFlags;
+    } catch {
+      // Fallback to printer preset if profile not found
+      presetFlags = legacyPresetSettings["printer"];
+    }
+  }
+
   // Additional optimization flags for better compression
   const optimizationFlags = [
     "-dAutoFilterColorImages=true",
     "-dAutoFilterGrayImages=true",
-    "-dColorImageDownsampleType=/Bicubic",
-    "-dGrayImageDownsampleType=/Bicubic",
-    "-dMonoImageDownsampleType=/Subsample",
     "-dOptimize=true",
     "-dPrinted=false",
   ];
@@ -152,7 +204,7 @@ function buildGhostscriptCommand(
 
   const allFlags = [
     ...baseFlags,
-    ...presetSettings[preset],
+    ...presetFlags,
     ...optimizationFlags,
     ...dpiFlags,
     ...grayscaleFlags,
@@ -169,15 +221,30 @@ function buildGhostscriptCommand(
 function getPresetDpi(preset: OptimizationPreset, customDpi?: number): number {
   if (customDpi) return customDpi;
 
-  const dpiMap: Record<OptimizationPreset, number> = {
+  // Legacy Adobe Acrobat presets
+  const legacyDpiMap: Record<string, number> = {
     screen: 72,
     ebook: 150,
-    printer: 300,
     prepress: 300,
     default: 150,
   };
 
-  return dpiMap[preset];
+  // Compression profile DPI mapping
+  const profileDpiMap: Record<string, number> = {
+    printer: 300,
+    "legal-jpeg": 300,
+    "legal-balanced": 300,
+    "legal-text": 300,
+    "legal-aggressive": 300,
+    "legal-archive": 300,
+    "legal-jpeg-225": 225,
+    "legal-balanced-225": 225,
+    "legal-text-225": 225,
+    "legal-aggressive-225": 225,
+    "legal-archive-225": 225,
+  };
+
+  return profileDpiMap[preset] || legacyDpiMap[preset] || 150;
 }
 
 /**
