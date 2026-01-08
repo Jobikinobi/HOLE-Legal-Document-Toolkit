@@ -514,7 +514,7 @@ export function recommendProfile(documentType: string): CompressionProfileName {
   if (type.includes("photo")) return "legal-jpeg"; // Photography
   if (type.includes("contract")) return "legal-text"; // Text-heavy
   if (type.includes("form")) return "legal-text"; // Forms
-  if (type.includes("archive")) return "legal-archive"; // Archival
+  if (type.includes("archive") || type.includes("archiv")) return "legal-archive"; // Archival storage
   if (type.includes("high-volume") || type.includes("bulk"))
     return "legal-aggressive"; // Bulk processing
 
